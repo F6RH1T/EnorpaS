@@ -1,0 +1,9 @@
+ENORPA Brülör Kontrol V18 - Katalog Boyutları
+
+- Toplam seçim modeli: 134
+- Katalog boyut veri satırı: 48 (+ 2 OILFLAM taslak verisi)
+- PDF raporunda üretici kataloglarının gerçek teknik resimleri gösterilir.
+- A, B, C, D, DM, D1, E, F, G, H1, I, L, M, N ve O ölçüleri modele göre otomatik gelir.
+- Flanş ve paketleme ölçüleri kaynakta bulunduğunda PDF'ye eklenir.
+- Katalogda boş bırakılmış modellere değer uydurulmaz; teknik resim gösterilir ve manuel ölçüm uyarısı verilir.
+- BLU 7000-8000-10000-12000.1 PR dosyası .lnk kısayolu olduğundan bu PR modellerinin ölçüleri halen beklenmektedir.
