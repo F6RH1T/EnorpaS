@@ -32,7 +32,13 @@
           </label>
           <label>Seri<input id="series"></label>
           <label>Model<input id="model" required></label><label>Ürün kodu<input id="productCode"></label>
-          <label>Yakıt<input id="fuel"></label><label>Kafa<input id="head"></label>
+          <label>Yakıt kategorisi
+            <select id="fuel" required>
+              <option value="gas">Doğalgaz</option>
+              <option value="oil">Motorin</option>
+              <option value="dual">Çift yakıt (doğalgaz + motorin)</option>
+            </select>
+          </label><label>Kafa<input id="head"></label>
           <label>Minimum güç (kW)<input id="powerMin" type="number" step="any"></label>
           <label>Maksimum güç (kW)<input id="powerMax" type="number" step="any"></label>
           <fieldset class="dimensions">
@@ -47,7 +53,7 @@
       </section>
       <section class="card">
         <div class="section-title"><div><h2>Brülörler</h2><p class="muted">Eski kayıtları görüntüleyebilir, PDF teknik fiş açabilir veya düzenleyebilirsin.</p></div><button id="refresh" class="secondary">Yenile</button></div>
-        <div class="table-wrap"><table><thead><tr><th>Üretici</th><th>Seri</th><th>Model</th><th>Durum</th><th>Teknik çizim</th><th>İşlemler</th></tr></thead><tbody id="burnerRows"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Üretici</th><th>Seri</th><th>Model</th><th>Yakıt</th><th>Durum</th><th>Teknik çizim</th><th>İşlemler</th></tr></thead><tbody id="burnerRows"></tbody></table></div>
       </section>
     </section>
   </main>
@@ -56,6 +62,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   <script src="firebase-config.js"></script>
   <script src="firebase-bootstrap.js"></script>
-  <script src="admin.js?v=23"></script>
+  <script src="admin.js?v=24"></script>
 </body>
 </html>

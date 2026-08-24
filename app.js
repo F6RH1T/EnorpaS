@@ -152,11 +152,11 @@ const steps = [
   {id:"burnerRightPhoto",type:"photo-form",category:"Brülör dış görünüş – sağ taraf",instruction:"Brülörün sağ tarafını çekin.",hint:"Dış ekipmanlar net görünmeli.",fields:[]},
   {id:"burnerLeftPhoto",type:"photo-form",category:"Brülör dış görünüş – sol taraf",instruction:"Brülörün sol tarafını çekin.",hint:"Bağlantılar net görünmeli.",fields:[]},
   {id:"burnerTopPhoto",type:"photo-form",category:"Brülör dış görünüş – üstten",instruction:"Brülörün üstten fotoğrafını çekin.",hint:"Üst kapak ve yerleşim görünmeli.",fields:[]},
-  {id:"extraChecks",type:"check",category:"Diğer kontroller",items:[["gasAdapter","Doğalgaz adaptörü mevcut mu?"],["adapterFlange","Adaptör flanşları uyumlu mu?"],["nutBag","Somun ve vida poşeti mevcut mu?"],["panelWiring","Pano kablo bağlantıları kontrol edildi mi?"],["rwfSocket","RWF soketi uygun mu?"],["flameDetector","Alev dedektörü mevcut mu?"],["ignitionCoil","Ateşleme bobini mevcut mu?"],["ignitionConnections","Ateşleme bobini bağlantıları doğru mu?"],["damageFree","Hasar, korozyon veya eksik parça yok mu?"]]}
+  {id:"extraChecks",type:"check",category:"Diğer kontroller",items:[["gasAdapter","Doğalgaz adaptörü mevcut mu?",{fuel:["gas","dual"]}],["adapterFlange","Adaptör flanşları uyumlu mu?",{fuel:["gas","dual"]}],["nutBag","Somun ve vida poşeti mevcut mu?",{fuel:["gas","dual"]}],["panelWiring","Pano kablo bağlantıları kontrol edildi mi?"],["rwfSocket","RWF soketi uygun mu?",{fuel:["gas","dual"]}],["flameDetector","Alev dedektörü mevcut mu?"],["ignitionCoil","Ateşleme bobini mevcut mu?"],["ignitionConnections","Ateşleme bobini bağlantıları doğru mu?"],["damageFree","Hasar, korozyon veya eksik parça yok mu?"]]}
 ];
 
 const reviewGroups = [
-  ["Genel bilgiler",[["burnerBrand","Brülör Markası"],["burnerSeries","Brülör Serisi"],["burnerName","Brülör Model İsmi"],["burnerModel","Brülör Model Numarası"],["burnerSerial","Brülör Seri Numarası"],["inspectionDate","Denetim Tarihi"],["inspectionPlace","Denetim Yeri"],["customer","Müşteri / Firma"],["projectNo","Proje Numarası"],["workOrderNo","İş Emri No"],["inspector","Denetçi(ler)"],["inspectionResult","Kontrol sonucu"]]],
+  ["Genel bilgiler",[["burnerBrand","Brülör Markası"],["burnerSeries","Brülör Serisi"],["burnerFuel","Yakıt kategorisi"],["burnerName","Brülör Model İsmi"],["burnerModel","Brülör Model Numarası"],["burnerSerial","Brülör Seri Numarası"],["inspectionDate","Denetim Tarihi"],["inspectionPlace","Denetim Yeri"],["customer","Müşteri / Firma"],["projectNo","Proje Numarası"],["workOrderNo","İş Emri No"],["inspector","Denetçi(ler)"],["inspectionResult","Kontrol sonucu"]]],
   ["Montaj plakası, conta ve namlu",[["gasketThickness","Conta kalınlığı / namludan geçiş [mm]"],["measureG","G ölçüsü [mm]"],["measureF","F ölçüsü [mm]"],["measureL","L ölçüsü [mm]"],["measureI","I ölçüsü [mm]"],["measureM","M ölçüsü"],["measureD","D-D1 ölçüsü [mm]"],["plateThickness","Montaj plakası kalınlığı [mm]"]]],
   ["Doğalgaz ekipmanları",[["gasTrainSerial","Gaz rampası seri numarası"],["gasGasket","Gaz rampası contası"],["copperPipe","Bakır boru"],["rwfExists","RWF modülü"],["rwfModel","RWF model numarası"],["rwfSerial","RWF seri numarası"],["pt100Exists","PT-100"],["pt100ProductCode","PT-100 ürün kodu"],["pt100Serial","PT-100 seri numarası"],["gasSetExists","Gaz ayar yay seti"],["gasSetSerial","Gaz ayar yay seti seri numarası"],["gasSetMbar","Gaz ayar yay seti mBar"],["gasAdapter","Doğalgaz adaptörü"],["adapterFlange","Adaptör flanş uyumu"],["nutBag","Somun ve vida poşeti"]]],
   ["Sıvı yakıt ekipmanları",[["fuelFilterSerial","Filtre seri numarası"],["fuelFilterMicron","Filtre elek inceliği"],["fuelFilterPressure","Filtre maksimum basıncı"],["nutBoltSet","2 adet somun ve vida seti"],["fuelHoses","2 adet bağlantı hortumu"],["reducer","1 adet 1x3/4 redüktör"]]],
@@ -186,7 +186,10 @@ function show(id){screens.forEach(s=>s.classList.toggle("active",s.id===id));win
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function attr(v){return esc(v)}
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2400)}
-function activeSteps(){return steps.filter(s=>{if(s.fuel&&!s.fuel.includes(state.template.fuel))return false;if(s.depends&&state.values[s.depends[0]]!==s.depends[1])return false;if(state.template.fuel==="gas-basic"&&["gasSerial","gasChecklist","rwfPhoto","pt100Check","pt100Photo","gasSetCheck","gasSetPhoto","filterPhoto","liquidChecklist"].includes(s.id))return false;return true})}
+function fuelKind(value){const fuel=String(value||"").toLocaleLowerCase("tr-TR");if(fuel==="dual"||fuel.includes("çift")||fuel.includes("dual"))return"dual";if(fuel==="oil"||fuel.includes("motorin")||fuel.includes("diesel")||fuel.includes("sıvı"))return"oil";if(fuel==="gas"||fuel==="gas-basic"||fuel.includes("gaz"))return"gas";return"dual"}
+function fuelLabel(value){return{gas:"Doğalgaz",oil:"Motorin",dual:"Çift yakıt (doğalgaz + motorin)"}[fuelKind(value)]}
+function activeChecklistItems(step){const kind=fuelKind(state.template.fuel);return(step.items||[]).filter(item=>!item[2]?.fuel||item[2].fuel.includes(kind))}
+function activeSteps(){const kind=fuelKind(state.template.fuel);return steps.filter(s=>{if(s.fuel&&!s.fuel.includes(kind))return false;if(s.depends&&state.values[s.depends[0]]!==s.depends[1])return false;if(s.type==="check"&&!activeChecklistItems(s).length)return false;return true})}
 function newId(){return crypto.randomUUID?crypto.randomUUID():"r-"+Date.now()+"-"+Math.random().toString(16).slice(2)}
 function reportNo(){const y=new Date().getFullYear();const n=Number(localStorage.getItem("enorpaReportSequence")||0)+1;localStorage.setItem("enorpaReportSequence",n);return `ENR-${y}-${String(n).padStart(6,"0")}`}
 
@@ -209,6 +212,7 @@ function renderTemplates(){
   const brand=state.selectedBrand;
   const query=($("#templateSearch")?.value||"").trim().toLocaleLowerCase("tr-TR");
   const selectedSeries=$("#seriesFilter")?.value||"all";
+  const selectedFuel=$("#fuelFilter")?.value||"all";
   let rows=burnerTemplates.filter(t=>!t.hidden&&(!brand||t.brand===brand));
   const series=[...new Set(rows.map(t=>t.series))].sort((a,b)=>a.localeCompare(b,"tr"));
   if($("#seriesFilter")){
@@ -218,12 +222,13 @@ function renderTemplates(){
   }
   const activeSeries=$("#seriesFilter")?.value||selectedSeries;
   if(activeSeries!=="all")rows=rows.filter(t=>t.series===activeSeries);
+  if(selectedFuel!=="all")rows=rows.filter(t=>fuelKind(t.fuel)===selectedFuel);
   if(query)rows=rows.filter(t=>`${t.title} ${t.code} ${t.series}`.toLocaleLowerCase("tr-TR").includes(query));
   rows.sort((a,b)=>a.series.localeCompare(b.series,"tr")||a.title.localeCompare(b.title,"tr",{numeric:true}));
   $("#templateCount").textContent=`${rows.length} model gösteriliyor`;
   const icons={MULTICALOR:"MC",BLU:"BL",OILFLAM:"OF","MAX GAS":"MG",TBML:"TB",TBG:"TG",GENEL:"GN"};
   const grouped=rows.reduce((acc,t)=>{(acc[t.series]??=[]).push(t);return acc},{});
-  $("#templateList").innerHTML=rows.length?Object.entries(grouped).map(([seriesName,items])=>`<section class="series-block"><div class="series-heading"><strong>${esc(seriesName)}</strong><span>${items.length} model</span></div><div class="template-grid">${items.map(t=>`<button class="template-card" data-template="${t.id}"><span class="template-icon">${icons[t.family]||"BR"}</span><span><strong>${esc(t.title)}</strong><small>Kod: ${esc(t.code||"manuel girilecek")} · ${esc(t.dataStatus)}</small></span><span>›</span></button>`).join("")}</div></section>`).join(""):`<div class="empty-state">Aramaya uygun brülör bulunamadı.</div>`;
+  $("#templateList").innerHTML=rows.length?Object.entries(grouped).map(([seriesName,items])=>`<section class="series-block"><div class="series-heading"><strong>${esc(seriesName)}</strong><span>${items.length} model</span></div><div class="template-grid">${items.map(t=>`<button class="template-card" data-template="${t.id}"><span class="template-icon">${icons[t.family]||"BR"}</span><span><strong>${esc(t.title)}</strong><small>${esc(fuelLabel(t.fuel))} · Kod: ${esc(t.code||"manuel girilecek")} · ${esc(t.dataStatus)}</small></span><span>›</span></button>`).join("")}</div></section>`).join(""):`<div class="empty-state">Aramaya uygun brülör bulunamadı.</div>`;
   document.querySelectorAll("[data-template]").forEach(b=>b.onclick=()=>startTemplate(b.dataset.template));
 }
 async function startTemplate(id){
@@ -232,7 +237,7 @@ async function startTemplate(id){
     toast("Ölçü görseli hazırlanıyor…");
     try{state.template.remoteDrawingDataUrl=await loadCatalogFileAsDataUrl(state.template.drawingFileId)}catch(error){console.warn("Ölçü görseli alınamadı",error)}
   }
-  state.stepIndex=0;state.values={burnerBrand:state.template.brand||"",burnerSeries:state.template.series||"",burnerName:state.template.title,burnerModel:state.template.code,inspector:"Ferhat HACIOSMANOĞLU",inspectionResult:"Kontrolden geçti"};state.photos={};state.recordId=newId();state.reportNo=reportNo();state.status="draft";show("flow");renderFlow();if(state.template.datasheetWarning)setTimeout(()=>alert(state.template.datasheetWarning),150)
+  state.stepIndex=0;state.values={burnerBrand:state.template.brand||"",burnerSeries:state.template.series||"",burnerFuel:fuelLabel(state.template.fuel),burnerName:state.template.title,burnerModel:state.template.code,inspector:"Ferhat HACIOSMANOĞLU",inspectionResult:"Kontrolden geçti"};state.photos={};state.recordId=newId();state.reportNo=reportNo();state.status="draft";show("flow");renderFlow();if(state.template.datasheetWarning)setTimeout(()=>alert(state.template.datasheetWarning),150)
 }
 async function resumeRecord(id){const r=await db.get(id);if(!r)return;state.template=getTemplateById(r.templateId);state.stepIndex=r.stepIndex||0;state.values=r.values||{};state.photos=r.photos||{};state.recordId=r.id;state.reportNo=r.reportNo;state.status=r.status;show(r.status==="draft"?"flow":"record");if(r.status==="draft")renderFlow();else renderRecord(r)}
 function renderFlow(){
@@ -252,9 +257,9 @@ async function renderPhotoForm(s){
   $("#saveProgress").onclick=saveCurrentDraft;await startCamera()
 }
 function renderChecklist(s){
-  stopCamera();$("#stage").innerHTML=`<div class="stage-card"><span class="step-label">CHECKLIST</span><h2>${esc(s.category)}</h2><p>Tüm maddeleri Var/Yok olarak işaretleyin.</p><div class="check-list">${s.items.map(([k,l])=>`<div class="check-item"><span>${esc(l)}</span><div class="toggle"><button class="yes ${state.values[k]==="Mevcut"?"active":""}" data-k="${k}" data-v="Mevcut">✓ Var</button><button class="no ${state.values[k]==="Mevcut değil"?"active":""}" data-k="${k}" data-v="Mevcut değil">✕ Yok</button></div></div>`).join("")}</div><div class="actions"><button class="primary" id="continue">Devam et</button><button class="secondary" id="saveProgress">Taslak kaydet</button></div></div>`;
+  const items=activeChecklistItems(s);stopCamera();$("#stage").innerHTML=`<div class="stage-card"><span class="step-label">CHECKLIST</span><h2>${esc(s.category)}</h2><p>Tüm maddeleri Var/Yok olarak işaretleyin.</p><div class="check-list">${items.map(([k,l])=>`<div class="check-item"><span>${esc(l)}</span><div class="toggle"><button class="yes ${state.values[k]==="Mevcut"?"active":""}" data-k="${k}" data-v="Mevcut">✓ Var</button><button class="no ${state.values[k]==="Mevcut değil"?"active":""}" data-k="${k}" data-v="Mevcut değil">✕ Yok</button></div></div>`).join("")}</div><div class="actions"><button class="primary" id="continue">Devam et</button><button class="secondary" id="saveProgress">Taslak kaydet</button></div></div>`;
   document.querySelectorAll(".toggle button").forEach(b=>b.onclick=()=>{state.values[b.dataset.k]=b.dataset.v;b.parentElement.querySelectorAll("button").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
-  $("#continue").onclick=()=>{if(s.items.some(([k])=>!state.values[k]))return alert("Tüm maddeleri işaretleyin.");nextStep()};$("#saveProgress").onclick=saveCurrentDraft
+  $("#continue").onclick=()=>{if(items.some(([k])=>!state.values[k]))return alert("Tüm maddeleri işaretleyin.");nextStep()};$("#saveProgress").onclick=saveCurrentDraft
 }
 async function startCamera(){stopCamera();try{state.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1920},height:{ideal:1080}},audio:false});$("#cam").srcObject=state.stream}catch(e){}}
 function stopCamera(){if(state.stream){state.stream.getTracks().forEach(t=>t.stop());state.stream=null}}
@@ -262,7 +267,7 @@ async function capture(){const v=$("#cam");if(!v||!v.videoWidth)return alert("Ka
 async function savePhoto(source,s){let img=source;if(source instanceof File){img=new Image();img.src=URL.createObjectURL(source);await img.decode()}const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,scale=Math.min(1,1600/w),c=document.createElement("canvas");c.width=Math.round(w*scale);c.height=Math.round(h*scale);c.getContext("2d").drawImage(img,0,0,w,h,0,0,c.width,c.height);state.photos[s.id]={category:s.category,dataUrl:c.toDataURL("image/jpeg",.76)};$("#photoStatus").textContent="✓ Fotoğraf hazır";$("#photoStatus").classList.add("done")}
 function nextStep(){stopCamera();state.stepIndex++;if(state.stepIndex>=activeSteps().length){applyDefaults();renderReview();show("review")}else renderFlow()}
 function applyDefaults(){state.values.inspectionDate||=new Date().toLocaleDateString("tr-TR");state.values.flameDetectorType||=state.values.flameDetector==="Mevcut"?"Fotosel":"";state.values.finalResult||="Geçti"}
-function visibleGroups(){return reviewGroups.filter(([g])=>!(state.template.fuel==="oil"&&g==="Doğalgaz ekipmanları")&&!((state.template.fuel==="gas"||state.template.fuel==="gas-basic")&&g==="Sıvı yakıt ekipmanları"))}
+function visibleGroups(){const kind=fuelKind(state.template.fuel),gasOnly=new Set(["rwfSocket"]);return reviewGroups.filter(([g])=>!(kind==="oil"&&g==="Doğalgaz ekipmanları")&&!(kind==="gas"&&g==="Sıvı yakıt ekipmanları")).map(([g,fields])=>[g,fields.filter(([key])=>!(kind==="oil"&&gasOnly.has(key)))])}
 function renderReview(){
   $("#reviewTitle").textContent=state.template.title;let html="";for(const[g,fields]of visibleGroups()){html+=`<div class="group-title">${esc(g)}</div>`+fields.map(([k,l])=>`<div class="field"><label>${esc(l)}</label>${k==="notes"?`<textarea data-review="${k}">${esc(state.values[k]||"")}</textarea>`:`<input data-review="${k}" value="${attr(state.values[k]||"")}">`}</div>`).join("")}html+=`<div class="group-title">Kategori fotoğrafları</div>`+Object.values(state.photos).map(p=>`<div class="field"><label>${esc(p.category)}</label><img class="review-photo" src="${p.dataUrl}"></div>`).join("");$("#reviewFields").innerHTML=html;document.querySelectorAll("[data-review]").forEach(i=>i.oninput=()=>state.values[i.dataset.review]=i.value)
 }
@@ -440,6 +445,6 @@ async function searchSerial(){
   $("#searchResults").innerHTML=rows.length?rows.map(recordCard).join(""):`<div class="empty-state">Seri numarası bulunamadı.</div>`;wireRecordButtons()
 }
 
-$("#newReport").onclick=()=>{state.selectedBrand=null;show("brands");renderBrands()};$("#continueReport").onclick=()=>{show("archive");$("#archiveFilter").value="draft";renderArchive()};$("#openArchive").onclick=()=>{show("archive");renderArchive()};$("#searchButton").onclick=searchSerial;$("#serialSearch").onkeydown=e=>{if(e.key==="Enter")searchSerial()};$("#archiveSearch").oninput=renderArchive;$("#archiveFilter").onchange=renderArchive;$("#templateSearch").oninput=renderTemplates;$("#seriesFilter").onchange=renderTemplates;
+$("#newReport").onclick=()=>{state.selectedBrand=null;show("brands");renderBrands()};$("#continueReport").onclick=()=>{show("archive");$("#archiveFilter").value="draft";renderArchive()};$("#openArchive").onclick=()=>{show("archive");renderArchive()};$("#searchButton").onclick=searchSerial;$("#serialSearch").onkeydown=e=>{if(e.key==="Enter")searchSerial()};$("#archiveSearch").oninput=renderArchive;$("#archiveFilter").onchange=renderArchive;$("#templateSearch").oninput=renderTemplates;$("#seriesFilter").onchange=renderTemplates;$("#fuelFilter").onchange=renderTemplates;
 document.querySelectorAll("[data-back]").forEach(b=>b.onclick=()=>show(b.dataset.back));$("#flowBack").onclick=()=>{stopCamera();if(state.stepIndex>0){state.stepIndex--;renderFlow()}else show("templates")};$("#reviewBack").onclick=()=>{state.stepIndex=activeSteps().length-1;show("flow");renderFlow()};$("#saveDraft").onclick=saveCurrentDraft;$("#completeReport").onclick=complete;$("#reportBack").onclick=()=>show("review");$("#printReport").onclick=async()=>{await waitForReportImages();preparePrintFooters();setTimeout(()=>window.print(),120)};$("#cloudBackup").onclick=cloudBackup;
 addEventListener("beforeprint",preparePrintFooters);renderBrands();syncBurnerCatalog();refreshDashboard();if("serviceWorker"in navigator)addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));

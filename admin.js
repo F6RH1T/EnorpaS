@@ -40,6 +40,14 @@
     return "ecoflam";
   }
   function schemaFor(name) { return schemas[name] || schemas.ecoflam; }
+  function fuelKind(value) {
+    var fuel = String(value || "").toLocaleLowerCase("tr-TR");
+    if (fuel === "dual" || fuel.indexOf("çift") >= 0 || fuel.indexOf("dual") >= 0) return "dual";
+    if (fuel === "oil" || fuel.indexOf("motorin") >= 0 || fuel.indexOf("diesel") >= 0 || fuel.indexOf("sıvı") >= 0) return "oil";
+    if (fuel === "gas" || fuel === "gas-basic" || fuel.indexOf("gaz") >= 0) return "gas";
+    return "dual";
+  }
+  function fuelLabel(value) { return { gas: "Doğalgaz", oil: "Motorin", dual: "Çift yakıt" }[fuelKind(value)]; }
   function dimensionsOf(d) {
     if (d && d.dimensionData && d.dimensionData.values) return d.dimensionData.values;
     return d && d.dimensions ? d.dimensions : {};
@@ -68,7 +76,7 @@
         series: product.series || "",
         model: product.title || "",
         productCode: product.code || "",
-        fuel: product.fuel || "",
+        fuel: fuelKind(product.fuel),
         head: product.head || "",
         active: true,
         power: product.power || { min: null, max: null },
@@ -184,7 +192,7 @@
         dimensionSchema: schema.version,
         dimensionData: { schema: schema.version, manufacturer: manufacturer, values: dimensions },
         dimensions: dimensions,
-        series: value("series"), model: value("model"), productCode: value("productCode"), fuel: value("fuel"), head: value("head"),
+        series: value("series"), model: value("model"), productCode: value("productCode"), fuel: fuelKind(value("fuel")), head: value("head"),
         active: $("active").checked,
         power: { min: numberOrNull("powerMin"), max: numberOrNull("powerMax") },
         drawingFileId: drawingFileId || old.drawingFileId || null,
@@ -242,7 +250,7 @@
   }
 
   async function loadBurners() {
-    $("burnerRows").innerHTML = '<tr><td colspan="6">Yükleniyor…</td></tr>';
+    $("burnerRows").innerHTML = '<tr><td colspan="7">Yükleniyor…</td></tr>';
     try {
       var catalog = await loadBundledCatalog();
       var snapshot = await fb.db.collection("burners").orderBy("brand").limit(500).get();
@@ -268,7 +276,7 @@
       $("burnerRows").innerHTML = "";
       rows.forEach(function (entry) {
         var d = entry.data, manufacturer = manufacturerOf(d), schema = schemaFor(manufacturer), tr = document.createElement("tr");
-        [schema.label, d.series, d.model, d.active === false ? "Pasif" : "Aktif"].forEach(function (text) { var td = document.createElement("td"); td.textContent = text || "—"; tr.appendChild(td); });
+        [schema.label, d.series, d.model, fuelLabel(d.fuel), d.active === false ? "Pasif" : "Aktif"].forEach(function (text) { var td = document.createElement("td"); td.textContent = text || "—"; tr.appendChild(td); });
         var files = document.createElement("td"), dr = fileButton("Çizimi aç", d.drawingFileId, d.drawingUrl || d.bundledDrawingUrl); if (dr) files.appendChild(dr); else files.textContent = "—"; tr.appendChild(files);
         var action = document.createElement("td"); action.className = "row-actions";
         action.appendChild(actionButton("Görüntüle", function () { openTechnicalSheet(d, false); }, false));
@@ -277,19 +285,19 @@
         action.appendChild(actionButton("Sil", function () { hideRecord(entry.id, d); }, false));
         tr.appendChild(action); $("burnerRows").appendChild(tr);
       });
-      if (!rows.length) $("burnerRows").innerHTML = '<tr><td colspan="6">Henüz kayıt yok.</td></tr>';
+      if (!rows.length) $("burnerRows").innerHTML = '<tr><td colspan="7">Henüz kayıt yok.</td></tr>';
     } catch (error) { message("Liste alınamadı: " + error.message, true); }
   }
 
   function editRecord(id, d) {
     var manufacturer = manufacturerOf(d), dims = dimensionsOf(d);
     $("recordId").value = id; $("manufacturer").value = manufacturer; renderDimensionFields(manufacturer, dims);
-    $("series").value = d.series || ""; $("model").value = d.model || ""; $("productCode").value = d.productCode || ""; $("fuel").value = d.fuel || ""; $("head").value = d.head || "";
+    $("series").value = d.series || ""; $("model").value = d.model || ""; $("productCode").value = d.productCode || ""; $("fuel").value = fuelKind(d.fuel); $("head").value = d.head || "";
     $("powerMin").value = d.power && d.power.min != null ? d.power.min : ""; $("powerMax").value = d.power && d.power.max != null ? d.power.max : "";
     $("active").checked = d.active !== false; $("formTitle").textContent = schemaFor(manufacturer).label + " brülörünü düzenle"; window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function resetForm() {
-    $("burnerForm").reset(); $("recordId").value = ""; $("manufacturer").value = "ecoflam"; renderDimensionFields("ecoflam", {}); $("active").checked = true; $("formTitle").textContent = "Yeni brülör";
+    $("burnerForm").reset(); $("recordId").value = ""; $("manufacturer").value = "ecoflam"; $("fuel").value = "gas"; renderDimensionFields("ecoflam", {}); $("active").checked = true; $("formTitle").textContent = "Yeni brülör";
   }
 })();
