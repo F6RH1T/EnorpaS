@@ -226,8 +226,13 @@ function renderTemplates(){
   $("#templateList").innerHTML=rows.length?Object.entries(grouped).map(([seriesName,items])=>`<section class="series-block"><div class="series-heading"><strong>${esc(seriesName)}</strong><span>${items.length} model</span></div><div class="template-grid">${items.map(t=>`<button class="template-card" data-template="${t.id}"><span class="template-icon">${icons[t.family]||"BR"}</span><span><strong>${esc(t.title)}</strong><small>Kod: ${esc(t.code||"manuel girilecek")} · ${esc(t.dataStatus)}</small></span><span>›</span></button>`).join("")}</div></section>`).join(""):`<div class="empty-state">Aramaya uygun brülör bulunamadı.</div>`;
   document.querySelectorAll("[data-template]").forEach(b=>b.onclick=()=>startTemplate(b.dataset.template));
 }
-function startTemplate(id){
-  state.template=getTemplateById(id);state.stepIndex=0;state.values={burnerBrand:state.template.brand||"",burnerSeries:state.template.series||"",burnerName:state.template.title,burnerModel:state.template.code,inspector:"Ferhat HACIOSMANOĞLU",inspectionResult:"Kontrolden geçti"};state.photos={};state.recordId=newId();state.reportNo=reportNo();state.status="draft";show("flow");renderFlow();if(state.template.datasheetWarning)setTimeout(()=>alert(state.template.datasheetWarning),150)
+async function startTemplate(id){
+  state.template=getTemplateById(id);
+  if(state.template.drawingFileId&&!state.template.remoteDrawingDataUrl){
+    toast("Ölçü görseli hazırlanıyor…");
+    try{state.template.remoteDrawingDataUrl=await loadCatalogFileAsDataUrl(state.template.drawingFileId)}catch(error){console.warn("Ölçü görseli alınamadı",error)}
+  }
+  state.stepIndex=0;state.values={burnerBrand:state.template.brand||"",burnerSeries:state.template.series||"",burnerName:state.template.title,burnerModel:state.template.code,inspector:"Ferhat HACIOSMANOĞLU",inspectionResult:"Kontrolden geçti"};state.photos={};state.recordId=newId();state.reportNo=reportNo();state.status="draft";show("flow");renderFlow();if(state.template.datasheetWarning)setTimeout(()=>alert(state.template.datasheetWarning),150)
 }
 async function resumeRecord(id){const r=await db.get(id);if(!r)return;state.template=getTemplateById(r.templateId);state.stepIndex=r.stepIndex||0;state.values=r.values||{};state.photos=r.photos||{};state.recordId=r.id;state.reportNo=r.reportNo;state.status=r.status;show(r.status==="draft"?"flow":"record");if(r.status==="draft")renderFlow();else renderRecord(r)}
 function renderFlow(){
@@ -283,7 +288,7 @@ function renderReport(record){
   const allDimensions=dimensionRows?`<h4 class="datasheet-subtitle">Katalogdaki tüm brülör boyutları</h4><table class="report-table compact-dimension-table"><tr><th>Ölçü kodu</th><th>Değer</th></tr>${dimensionRows}</table>`:`<div class="datasheet-image-missing">Bu modelin ölçü satırı kaynak katalogda boş bırakılmıştır. Teknik çizim aşağıda gösterilir; değerler manuel ölçülmelidir.</div>`;
   const flangeTable=flangeRows?`<h4 class="datasheet-subtitle">Brülör / kazan flanşı</h4><table class="report-table compact-dimension-table"><tr><th>Ölçü</th><th>Değer</th></tr>${flangeRows}</table>`:"";
   const packagingTable=packagingRows?`<h4 class="datasheet-subtitle">Paketleme boyutları</h4><table class="report-table compact-dimension-table"><tr><th>Ölçü</th><th>Değer</th></tr>${packagingRows}</table>`:"";
-  const datasheetImage=datasheetImageByTemplate[state.template.datasheetKey||state.template.id]||"";
+  const datasheetImage=state.template.remoteDrawingDataUrl||datasheetImageByTemplate[state.template.datasheetKey||state.template.id]||"";
   const datasheetVisual=datasheetImage?`<figure class="datasheet-visual"><img loading="eager" decoding="sync" src="${esc(datasheetImage)}" alt="${esc(state.template.title)} katalog teknik ölçü çizimi"><figcaption>${esc(state.template.title)} için kaynak katalogdaki gerçek teknik resim ve boyut tablosu</figcaption></figure>`:`<div class="datasheet-image-missing">Bu model için teknik ölçü görseli veri setine henüz eklenmemiştir.</div>`;
   const sourceText=spec.source?`${spec.source}${spec.page?` · Sayfa ${spec.page}`:""}`:datasheetDatasetMeta.source;
   const datasheetSection=`<section class="report-section datasheet-section"><h3>DATASHEET'TEN ALINAN BİLGİLER</h3><p class="datasheet-note">Marka: <b>${esc(state.template.brand||"-")}</b> · Seçili model: <b>${esc(state.template.title)}</b> · Ürün kodu: <b>${esc(state.template.code||"-")}</b>. Teknik resim doğrudan üretici kataloğunun brülör boyutları sayfasından alınmıştır.</p>${datasheetVisual}${allDimensions}${flangeTable}${packagingTable}<h4 class="datasheet-subtitle">Kontrol formunda karşılaştırılan ölçüler</h4><table class="report-table datasheet-table"><tr><th>Kod</th><th>Ölçü açıklaması</th><th>Datasheet değeri</th><th>Sahada ölçülen gerçek değer</th></tr>${datasheetRows}</table><p class="datasheet-source">Kaynak: ${esc(sourceText)} · Veri seti güncellemesi: ${esc(datasheetDatasetMeta.updatedAt)}${spec.note?`<br>Not: ${esc(spec.note)}`:""}</p></section>`;
@@ -344,6 +349,8 @@ async function syncBurnerCatalog(){
     const remote=snap.docs.map(doc=>{
       const d=doc.data()||{};
       const family=(d.series||d.brand||"Genel").replace(/\s+Serisi$/i,"").toUpperCase();
+      const remoteSpecKey=`firestore-spec-${doc.id}`;
+      burnerSpecLibrary[remoteSpecKey]={...(d.dimensions||{}),source:"Yönetim paneli",status:"Yönetici tarafından girildi",note:""};
       return {
         id:`firestore-${doc.id}`,
         firestoreId:doc.id,
@@ -354,8 +361,8 @@ async function syncBurnerCatalog(){
         code:d.productCode||"",
         fuel:d.fuel||"dual",
         head:d.head||null,
-        specKey:null,
-        expected:{},
+        specKey:remoteSpecKey,
+        expected:buildExpectedMeasurements(remoteSpecKey,d.head||null),
         datasheetFileId:d.datasheetFileId||null,
         drawingFileId:d.drawingFileId||null,
         hasDatasheet:!!d.datasheetFileId,
@@ -369,6 +376,20 @@ async function syncBurnerCatalog(){
     renderBrands();
     if(document.querySelector("#templates.active"))renderTemplates();
   }catch(error){console.warn("Firestore brülör kataloğu alınamadı; yerel katalog kullanılıyor.",error)}
+}
+
+const catalogFileCache=new Map();
+async function loadCatalogFileAsDataUrl(fileId){
+  if(catalogFileCache.has(fileId))return catalogFileCache.get(fileId);
+  const fileDoc=await getFirestore().collection("burnerFiles").doc(fileId).get();
+  if(!fileDoc.exists)throw new Error("Ölçü görseli bulunamadı.");
+  const meta=fileDoc.data();
+  const snap=await fileDoc.ref.collection("chunks").orderBy("index").get();
+  const parts=snap.docs.map(doc=>doc.data().data.toUint8Array());
+  if(parts.length!==meta.chunkCount)throw new Error("Ölçü görselinin parçaları eksik.");
+  const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error);reader.readAsDataURL(new Blob(parts,{type:meta.type||"image/jpeg"}))});
+  catalogFileCache.set(fileId,dataUrl);
+  return dataUrl
 }
 function cloudSafeRecord(record){
   const clean=JSON.parse(JSON.stringify(record));

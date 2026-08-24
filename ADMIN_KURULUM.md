@@ -13,4 +13,4 @@ Zorunlu yükleme sırası `admin.html` içinde hazırdır:
 
 Bootstrap hem mevcut projedeki `window.ENORPA_FIREBASE_CONFIG` adını hem de eski paketlerdeki `window.firebaseConfig` adını destekler. Firebase daha önce başlatılmışsa ikinci kez başlatmaz.
 
-PDF ve teknik çizimler ücretli Firebase Storage kullanılmadan Firestore içinde 700 KB parçalara ayrılarak saklanır. Dosya başına sınır 20 MB'dir. Görüntüleme sırasında parçalar tarayıcıda yeniden birleştirilir. Bu alan `firestore.rules` içinde yalnızca onaylı yönetici UID'sine açıktır.
+Ölçü tablosu/teknik çizim fotoğrafı ücretli Firebase Storage kullanılmadan Firestore içinde 700 KB parçalara ayrılarak saklanır. Dosya başına sınır 20 MB'dir. Ana uygulama modeli seçerken görseli tarayıcıda yeniden birleştirir ve raporun datasheet bölümüne koyar. A–O ölçü alanları da rapordaki katalog ölçü tablosunu besler. Yazma yetkisi `firestore.rules` içinde yalnızca onaylı yönetici UID'sine açıktır.

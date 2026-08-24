@@ -8,6 +8,8 @@
   function setConnected(ok) { $("connection").textContent = ok ? "Firebase hazır" : "Bağlantı hatası"; $("connection").className = "badge " + (ok ? "ok" : "error"); }
   function value(id) { return $(id).value.trim(); }
   function numberOrNull(id) { var n = Number($(id).value); return $(id).value === "" || !Number.isFinite(n) ? null : n; }
+  var dimensionKeys = ["A", "B", "C", "D", "DM", "D1", "E", "F", "G", "H1", "I", "L", "M", "N", "O", "Plate", "Weight"];
+  function dimensionsFromForm() { var result = {}; dimensionKeys.forEach(function (key) { var v = value("dim" + key); if (v) result[key === "Plate" ? "plate" : key === "Weight" ? "weight" : key] = v; }); return result; }
   if (!fb || !fb.auth || !fb.db) { setConnected(false); message("Firebase Auth veya Firestore hazırlanamadı.", true); return; }
   setConnected(true);
   $("loginForm").addEventListener("submit", async function (event) { event.preventDefault(); message(""); try { await fb.auth.signInWithEmailAndPassword(value("email"), $("password").value); } catch (error) { message("Giriş başarısız: " + error.message, true); } });
@@ -55,9 +57,8 @@
     var button = event.submitter; if (button) button.disabled = true;
     try {
       var old = (await fb.db.collection("burners").doc(id).get()).data() || {};
-      var datasheetFileId = await storeFile($("datasheet").files[0], id, "datasheet");
       var drawingFileId = await storeFile($("drawing").files[0], id, "drawing");
-      var data = { brand: value("brand"), series: value("series"), model: value("model"), productCode: value("productCode"), fuel: value("fuel"), head: value("head"), active: $("active").checked, power: { min: numberOrNull("powerMin"), max: numberOrNull("powerMax") }, datasheetFileId: datasheetFileId || old.datasheetFileId || null, drawingFileId: drawingFileId || old.drawingFileId || null, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+      var data = { brand: value("brand"), series: value("series"), model: value("model"), productCode: value("productCode"), fuel: value("fuel"), head: value("head"), active: $("active").checked, power: { min: numberOrNull("powerMin"), max: numberOrNull("powerMax") }, dimensions: dimensionsFromForm(), drawingFileId: drawingFileId || old.drawingFileId || null, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
       if (!old.createdAt) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       await fb.db.collection("burners").doc(id).set(data, { merge: true });
       message("Brülör ve dosyaları kaydedildi."); resetForm(); await loadBurners();
@@ -73,12 +74,12 @@
       snapshot.forEach(function (doc) {
         var d = doc.data(), tr = document.createElement("tr");
         [d.brand, d.series, d.model, d.active === false ? "Pasif" : "Aktif"].forEach(function (text) { var td = document.createElement("td"); td.textContent = text || "—"; tr.appendChild(td); });
-        var files = document.createElement("td"), ds = fileButton("PDF", d.datasheetFileId, d.datasheetUrl), dr = fileButton("Çizim", d.drawingFileId, d.drawingUrl); if (ds) files.appendChild(ds); if (dr) files.appendChild(dr); if (!ds && !dr) files.textContent = "—"; tr.appendChild(files);
+        var files = document.createElement("td"), dr = fileButton("Görüntüle", d.drawingFileId, d.drawingUrl); if (dr) files.appendChild(dr); else files.textContent = "—"; tr.appendChild(files);
         var action = document.createElement("td"), edit = document.createElement("button"); edit.textContent = "Düzenle"; edit.className = "secondary"; edit.addEventListener("click", function () { editRecord(doc.id, d); }); action.appendChild(edit); tr.appendChild(action); $("burnerRows").appendChild(tr);
       });
       if (snapshot.empty) $("burnerRows").innerHTML = '<tr><td colspan="6">Henüz kayıt yok.</td></tr>';
     } catch (error) { message("Liste alınamadı: " + error.message, true); }
   }
-  function editRecord(id, d) { $("recordId").value = id; $("brand").value = d.brand || ""; $("series").value = d.series || ""; $("model").value = d.model || ""; $("productCode").value = d.productCode || ""; $("fuel").value = d.fuel || ""; $("head").value = d.head || ""; $("powerMin").value = d.power && d.power.min != null ? d.power.min : ""; $("powerMax").value = d.power && d.power.max != null ? d.power.max : ""; $("active").checked = d.active !== false; $("formTitle").textContent = "Brülörü düzenle"; window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function editRecord(id, d) { $("recordId").value = id; $("brand").value = d.brand || ""; $("series").value = d.series || ""; $("model").value = d.model || ""; $("productCode").value = d.productCode || ""; $("fuel").value = d.fuel || ""; $("head").value = d.head || ""; $("powerMin").value = d.power && d.power.min != null ? d.power.min : ""; $("powerMax").value = d.power && d.power.max != null ? d.power.max : ""; dimensionKeys.forEach(function (key) { var dataKey = key === "Plate" ? "plate" : key === "Weight" ? "weight" : key; $("dim" + key).value = d.dimensions && d.dimensions[dataKey] || ""; }); $("active").checked = d.active !== false; $("formTitle").textContent = "Brülörü düzenle"; window.scrollTo({ top: 0, behavior: "smooth" }); }
   function resetForm() { $("burnerForm").reset(); $("recordId").value = ""; $("active").checked = true; $("formTitle").textContent = "Yeni brülör"; }
 })();
