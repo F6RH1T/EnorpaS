@@ -346,8 +346,11 @@ async function syncBurnerCatalog(){
   if(!isFirebaseReady()||!navigator.onLine)return;
   try{
     const snap=await getFirestore().collection("burners").where("active","==",true).get();
-    const remote=snap.docs.map(doc=>{
-      const d=doc.data()||{};
+    const remoteDocs=snap.docs.map(doc=>({doc,d:doc.data()||{}}));
+    const remoteCatalogIds=new Set(remoteDocs.map(item=>item.d.catalogId).filter(Boolean));
+    const remote=remoteDocs.filter(item=>item.d.deleted!==true).map(item=>{
+      const doc=item.doc;
+      const d=item.d;
       const family=(d.series||d.brand||"Genel").replace(/\s+Serisi$/i,"").toUpperCase();
       const remoteSpecKey=`firestore-spec-${doc.id}`;
       burnerSpecLibrary[remoteSpecKey]={...(d.dimensions||{}),source:"Yönetim paneli",status:"Yönetici tarafından girildi",note:""};
@@ -374,7 +377,6 @@ async function syncBurnerCatalog(){
       };
     });
     const remoteKeys=new Set(remote.map(t=>`${t.brand}|${t.series}|${t.title}|${t.code}`.toLocaleLowerCase("tr-TR")));
-    const remoteCatalogIds=new Set(remote.map(t=>t.catalogId).filter(Boolean));
     burnerTemplates=burnerTemplates.filter(t=>!remoteCatalogIds.has(t.id)&&!remoteKeys.has(`${t.brand}|${t.series}|${t.title}|${t.code}`.toLocaleLowerCase("tr-TR"))).concat(remote);
     renderBrands();
     if(document.querySelector("#templates.active"))renderTemplates();

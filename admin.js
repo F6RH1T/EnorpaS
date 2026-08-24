@@ -136,8 +136,20 @@
   }
 
   async function openStoredFile(fileId, fallbackUrl) {
-    if (!fileId && fallbackUrl) { window.open(fallbackUrl, "_blank", "noopener"); return; }
-    if (!fileId) return;
+    if (!fileId && !fallbackUrl) return;
+    var opened = window.open("", "_blank");
+    if (!opened) { message("Dosya penceresi açılamadı. Tarayıcı pop-up iznini kontrol edin.", true); return; }
+    opened.opener = null;
+    opened.document.write("<!doctype html><title>Dosya hazırlanıyor</title><p style='font-family:Arial;padding:24px'>Dosya hazırlanıyor…</p>");
+    if (!fileId && fallbackUrl) {
+      try {
+        var fallbackBlob = await fetch(fallbackUrl).then(function (response) { return response.blob(); });
+        var fallbackObjectUrl = URL.createObjectURL(fallbackBlob);
+        opened.location.replace(fallbackObjectUrl);
+        setTimeout(function () { URL.revokeObjectURL(fallbackObjectUrl); }, 60000);
+      } catch (error) { opened.close(); message("Çizim açılamadı: " + error.message, true); }
+      return;
+    }
     message("Dosya hazırlanıyor…");
     try {
       var fileDoc = await fb.db.collection("burnerFiles").doc(fileId).get();
@@ -148,8 +160,8 @@
       var joined = new Uint8Array(total), offset = 0;
       arrays.forEach(function (a) { joined.set(a, offset); offset += a.length; });
       var url = URL.createObjectURL(new Blob([joined], { type: meta.type }));
-      window.open(url, "_blank", "noopener"); setTimeout(function () { URL.revokeObjectURL(url); }, 60000); message("");
-    } catch (error) { message("Dosya açılamadı: " + error.message, true); }
+      opened.location.replace(url); setTimeout(function () { URL.revokeObjectURL(url); }, 60000); message("");
+    } catch (error) { opened.close(); message("Dosya açılamadı: " + error.message, true); }
   }
 
   $("burnerForm").addEventListener("submit", async function (event) {
@@ -197,6 +209,20 @@
     var button = document.createElement("button"); button.type = "button"; button.textContent = label; button.className = primary ? "" : "secondary"; button.addEventListener("click", handler); return button;
   }
 
+  async function hideRecord(id, d) {
+    if (!window.confirm((d.model || "Bu brülör") + " listeden kaldırılsın mı? Datasheet ölçüsü ve çizimi kaynakta korunacaktır.")) return;
+    try {
+      await fb.db.collection("burners").doc(id).set({
+        catalogId: d.catalogId || id,
+        deleted: true,
+        active: true,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      message("Brülör listeden kaldırıldı. Kaynak datasheet verileri korundu.");
+      await loadBurners();
+    } catch (error) { message("Brülör kaldırılamadı: " + error.message, true); }
+  }
+
   function technicalSheetHtml(d, autoPrint) {
     var manufacturer = manufacturerOf(d), schema = schemaFor(manufacturer), dims = dimensionsOf(d);
     var rows = schema.fields.map(function (field) {
@@ -230,13 +256,14 @@
       var rows = catalog.map(function (entry) {
         var remote = remoteById[entry.id];
         if (!remote) return entry;
+        if (remote.data.deleted === true) return null;
         var mergedDimensions = Object.assign({}, entry.data.dimensions, dimensionsOf(remote.data));
         return { id: remote.id, bundled: true, data: Object.assign({}, entry.data, remote.data, {
           dimensions: mergedDimensions,
           dimensionData: { schema: remote.data.dimensionSchema || entry.data.dimensionSchema, manufacturer: remote.data.manufacturer || entry.data.manufacturer, values: mergedDimensions },
           bundledDrawingUrl: entry.data.bundledDrawingUrl
         }) };
-      }).concat(custom);
+      }).filter(Boolean).concat(custom.filter(function (entry) { return entry.data.deleted !== true; }));
       rows.sort(function (a, b) { return String(a.data.brand || "").localeCompare(String(b.data.brand || ""), "tr") || String(a.data.model || "").localeCompare(String(b.data.model || ""), "tr"); });
       $("burnerRows").innerHTML = "";
       rows.forEach(function (entry) {
@@ -247,6 +274,7 @@
         action.appendChild(actionButton("Görüntüle", function () { openTechnicalSheet(d, false); }, false));
         action.appendChild(actionButton("PDF", function () { openTechnicalSheet(d, true); }, false));
         action.appendChild(actionButton("Düzenle", function () { editRecord(entry.id, d); }, true));
+        action.appendChild(actionButton("Sil", function () { hideRecord(entry.id, d); }, false));
         tr.appendChild(action); $("burnerRows").appendChild(tr);
       });
       if (!rows.length) $("burnerRows").innerHTML = '<tr><td colspan="6">Henüz kayıt yok.</td></tr>';
