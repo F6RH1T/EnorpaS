@@ -157,9 +157,11 @@
   }
 
   function openTechnicalSheet(d, autoPrint) {
-    var w = window.open("", "_blank", "noopener");
-    if (!w) { message("Teknik fiş penceresi açılamadı. Tarayıcı pop-up iznini kontrol edin.", true); return; }
-    w.document.open(); w.document.write(technicalSheetHtml(d, autoPrint)); w.document.close();
+    var html = technicalSheetHtml(d, autoPrint);
+    var url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+    var opened = window.open(url, "_blank", "noopener");
+    if (!opened) message("Teknik fiş penceresi açılamadı. Tarayıcı pop-up iznini kontrol edin.", true);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
   }
 
   async function loadBurners() {
