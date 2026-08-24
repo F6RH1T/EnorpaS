@@ -3,6 +3,8 @@
   var fb = window.ENORPA_FIREBASE;
   var CHUNK_SIZE = 700 * 1024;
   var MAX_FILE_SIZE = 20 * 1024 * 1024;
+  var bundledCatalog = [];
+  var bundledCatalogById = {};
   var $ = function (id) { return document.getElementById(id); };
 
   var schemas = {
@@ -41,6 +43,46 @@
   function dimensionsOf(d) {
     if (d && d.dimensionData && d.dimensionData.values) return d.dimensionData.values;
     return d && d.dimensions ? d.dimensions : {};
+  }
+
+  async function loadBundledCatalog() {
+    if (bundledCatalog.length) return bundledCatalog;
+    var source = await fetch("app.js", { cache: "no-cache" }).then(function (response) {
+      if (!response.ok) throw new Error("Yerleşik katalog okunamadı.");
+      return response.text();
+    });
+    var specMatch = source.match(/^const burnerSpecLibrary = (.+);$/m);
+    var productMatch = source.match(/^const burnerProductCatalog = (.+);$/m);
+    var imageMatch = source.match(/const datasheetImageByTemplate = (\{[\s\S]*?\n\});/);
+    if (!specMatch || !productMatch || !imageMatch) throw new Error("Yerleşik katalog biçimi tanınamadı.");
+    var specs = JSON.parse(specMatch[1]);
+    var products = JSON.parse(productMatch[1]);
+    var images = JSON.parse(imageMatch[1].replace(/,\s*}$/, "}"));
+    bundledCatalog = products.map(function (product) {
+      var spec = specs[product.specKey] || {};
+      var datasheetKey = spec.datasheet || null;
+      var data = {
+        catalogId: product.id,
+        manufacturer: /baltur/i.test(product.brand || "") ? "baltur" : "ecoflam",
+        brand: product.brand || "Ecoflam",
+        series: product.series || "",
+        model: product.title || "",
+        productCode: product.code || "",
+        fuel: product.fuel || "",
+        head: product.head || "",
+        active: true,
+        power: product.power || { min: null, max: null },
+        specKey: product.specKey || null,
+        datasheetKey: datasheetKey,
+        dimensions: Object.assign({}, spec),
+        bundledDrawingUrl: datasheetKey ? images[datasheetKey] || null : null
+      };
+      data.dimensionSchema = data.manufacturer === "baltur" ? "baltur-v1" : "ecoflam-v1";
+      data.dimensionData = { schema: data.dimensionSchema, manufacturer: data.manufacturer, values: data.dimensions };
+      bundledCatalogById[product.id] = data;
+      return { id: product.id, data: data, bundled: true };
+    });
+    return bundledCatalog;
   }
   function escapeHtml(text) { return String(text == null ? "" : text).replace(/[&<>"']/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
 
@@ -115,8 +157,14 @@
     var id = value("recordId") || fb.db.collection("burners").doc().id;
     var button = event.submitter; if (button) button.disabled = true;
     try {
-      var old = (await fb.db.collection("burners").doc(id).get()).data() || {};
+      var stored = (await fb.db.collection("burners").doc(id).get()).data() || {};
+      var bundledBase = bundledCatalogById[stored.catalogId || id] || {};
+      var old = Object.assign({}, bundledBase, stored);
+      old.dimensions = Object.assign({}, dimensionsOf(bundledBase), dimensionsOf(stored));
       var manufacturer = value("manufacturer"), schema = schemaFor(manufacturer), dimensions = dimensionsFromForm();
+      var preservedDimensions = Object.assign({}, dimensionsOf(old));
+      schema.fields.forEach(function (field) { delete preservedDimensions[field[0]]; });
+      dimensions = Object.assign(preservedDimensions, dimensions);
       var drawingFileId = await storeFile($("drawing").files[0], id, "drawing");
       var data = {
         manufacturer: manufacturer,
@@ -128,6 +176,9 @@
         active: $("active").checked,
         power: { min: numberOrNull("powerMin"), max: numberOrNull("powerMax") },
         drawingFileId: drawingFileId || old.drawingFileId || null,
+        catalogId: old.catalogId || id,
+        specKey: old.specKey || null,
+        datasheetKey: old.datasheetKey || null,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
       if (!old.createdAt) data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -167,18 +218,38 @@
   async function loadBurners() {
     $("burnerRows").innerHTML = '<tr><td colspan="6">Yükleniyor…</td></tr>';
     try {
-      var snapshot = await fb.db.collection("burners").orderBy("brand").limit(500).get(); $("burnerRows").innerHTML = "";
+      var catalog = await loadBundledCatalog();
+      var snapshot = await fb.db.collection("burners").orderBy("brand").limit(500).get();
+      var remoteById = {}, custom = [];
       snapshot.forEach(function (doc) {
-        var d = doc.data(), manufacturer = manufacturerOf(d), schema = schemaFor(manufacturer), tr = document.createElement("tr");
+        var remote = doc.data();
+        var catalogId = remote.catalogId || doc.id;
+        if (bundledCatalogById[catalogId]) remoteById[catalogId] = { id: doc.id, data: remote };
+        else custom.push({ id: doc.id, data: remote, bundled: false });
+      });
+      var rows = catalog.map(function (entry) {
+        var remote = remoteById[entry.id];
+        if (!remote) return entry;
+        var mergedDimensions = Object.assign({}, entry.data.dimensions, dimensionsOf(remote.data));
+        return { id: remote.id, bundled: true, data: Object.assign({}, entry.data, remote.data, {
+          dimensions: mergedDimensions,
+          dimensionData: { schema: remote.data.dimensionSchema || entry.data.dimensionSchema, manufacturer: remote.data.manufacturer || entry.data.manufacturer, values: mergedDimensions },
+          bundledDrawingUrl: entry.data.bundledDrawingUrl
+        }) };
+      }).concat(custom);
+      rows.sort(function (a, b) { return String(a.data.brand || "").localeCompare(String(b.data.brand || ""), "tr") || String(a.data.model || "").localeCompare(String(b.data.model || ""), "tr"); });
+      $("burnerRows").innerHTML = "";
+      rows.forEach(function (entry) {
+        var d = entry.data, manufacturer = manufacturerOf(d), schema = schemaFor(manufacturer), tr = document.createElement("tr");
         [schema.label, d.series, d.model, d.active === false ? "Pasif" : "Aktif"].forEach(function (text) { var td = document.createElement("td"); td.textContent = text || "—"; tr.appendChild(td); });
-        var files = document.createElement("td"), dr = fileButton("Çizimi aç", d.drawingFileId, d.drawingUrl); if (dr) files.appendChild(dr); else files.textContent = "—"; tr.appendChild(files);
+        var files = document.createElement("td"), dr = fileButton("Çizimi aç", d.drawingFileId, d.drawingUrl || d.bundledDrawingUrl); if (dr) files.appendChild(dr); else files.textContent = "—"; tr.appendChild(files);
         var action = document.createElement("td"); action.className = "row-actions";
         action.appendChild(actionButton("Görüntüle", function () { openTechnicalSheet(d, false); }, false));
         action.appendChild(actionButton("PDF", function () { openTechnicalSheet(d, true); }, false));
-        action.appendChild(actionButton("Düzenle", function () { editRecord(doc.id, d); }, true));
+        action.appendChild(actionButton("Düzenle", function () { editRecord(entry.id, d); }, true));
         tr.appendChild(action); $("burnerRows").appendChild(tr);
       });
-      if (snapshot.empty) $("burnerRows").innerHTML = '<tr><td colspan="6">Henüz kayıt yok.</td></tr>';
+      if (!rows.length) $("burnerRows").innerHTML = '<tr><td colspan="6">Henüz kayıt yok.</td></tr>';
     } catch (error) { message("Liste alınamadı: " + error.message, true); }
   }
 

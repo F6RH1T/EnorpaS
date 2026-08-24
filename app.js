@@ -354,6 +354,7 @@ async function syncBurnerCatalog(){
       return {
         id:`firestore-${doc.id}`,
         firestoreId:doc.id,
+        catalogId:d.catalogId||null,
         brand:d.brand||"Diğer",
         series:d.series||"Genel",
         family,
@@ -363,16 +364,18 @@ async function syncBurnerCatalog(){
         head:d.head||null,
         specKey:remoteSpecKey,
         expected:buildExpectedMeasurements(remoteSpecKey,d.head||null),
+        datasheetKey:d.datasheetKey||null,
         datasheetFileId:d.datasheetFileId||null,
         drawingFileId:d.drawingFileId||null,
-        hasDatasheet:!!d.datasheetFileId,
+        hasDatasheet:!!(d.datasheetFileId||d.datasheetKey),
         dataStatus:"Yönetim panelinden eklendi",
         version:"Firestore",
         hidden:false
       };
     });
     const remoteKeys=new Set(remote.map(t=>`${t.brand}|${t.series}|${t.title}|${t.code}`.toLocaleLowerCase("tr-TR")));
-    burnerTemplates=burnerTemplates.filter(t=>!remoteKeys.has(`${t.brand}|${t.series}|${t.title}|${t.code}`.toLocaleLowerCase("tr-TR"))).concat(remote);
+    const remoteCatalogIds=new Set(remote.map(t=>t.catalogId).filter(Boolean));
+    burnerTemplates=burnerTemplates.filter(t=>!remoteCatalogIds.has(t.id)&&!remoteKeys.has(`${t.brand}|${t.series}|${t.title}|${t.code}`.toLocaleLowerCase("tr-TR"))).concat(remote);
     renderBrands();
     if(document.querySelector("#templates.active"))renderTemplates();
   }catch(error){console.warn("Firestore brülör kataloğu alınamadı; yerel katalog kullanılıyor.",error)}
