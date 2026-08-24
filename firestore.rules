@@ -1,0 +1,29 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Mevcut V19 davranışı korunmuştur. Ayrı bir güvenlik çalışmasında
+    // kimlik doğrulamaya geçirilmelidir.
+    match /burnerReports/{reportId} {
+      allow read, write: if true;
+    }
+
+    // Admin kataloğu yalnızca onaylı yönetici hesabına açıktır.
+    match /burners/{burnerId} {
+      allow read: if resource.data.active == true || (request.auth != null
+        && request.auth.uid == 'vI4lbAGARpha0i3nmc3Njlw049w2');
+      allow write: if request.auth != null
+        && request.auth.uid == 'vI4lbAGARpha0i3nmc3Njlw049w2';
+    }
+
+    match /burnerFiles/{fileId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == 'vI4lbAGARpha0i3nmc3Njlw049w2';
+
+      match /chunks/{chunkId} {
+        allow read, write: if request.auth != null
+          && request.auth.uid == 'vI4lbAGARpha0i3nmc3Njlw049w2';
+      }
+    }
+  }
+}
