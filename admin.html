@@ -24,18 +24,21 @@
         <h2 id="formTitle">Yeni brülör</h2>
         <form id="burnerForm" class="grid">
           <input id="recordId" type="hidden">
-          <label>Marka<input id="brand" required></label><label>Seri<input id="series"></label>
+          <label>Üretici
+            <select id="manufacturer" required>
+              <option value="ecoflam">Ecoflam</option>
+              <option value="baltur">Baltur</option>
+            </select>
+          </label>
+          <label>Seri<input id="series"></label>
           <label>Model<input id="model" required></label><label>Ürün kodu<input id="productCode"></label>
           <label>Yakıt<input id="fuel"></label><label>Kafa<input id="head"></label>
           <label>Minimum güç (kW)<input id="powerMin" type="number" step="any"></label>
           <label>Maksimum güç (kW)<input id="powerMax" type="number" step="any"></label>
-          <fieldset class="dimensions"><legend>Datasheet ölçüleri (mm)</legend>
-            <label>A<input id="dimA"></label><label>B<input id="dimB"></label><label>C<input id="dimC"></label>
-            <label>D<input id="dimD"></label><label>DM<input id="dimDM"></label><label>D1<input id="dimD1"></label>
-            <label>E<input id="dimE"></label><label>F<input id="dimF"></label><label>G<input id="dimG"></label>
-            <label>H1<input id="dimH1"></label><label>I<input id="dimI"></label><label>L<input id="dimL"></label>
-            <label>M<input id="dimM"></label><label>N<input id="dimN"></label><label>O<input id="dimO"></label>
-            <label>Plaka kalınlığı<input id="dimPlate"></label><label>Ağırlık<input id="dimWeight"></label>
+          <fieldset class="dimensions">
+            <legend id="dimensionLegend">Ecoflam datasheet ölçüleri</legend>
+            <p id="dimensionHelp" class="dimension-help"></p>
+            <div id="dimensionFields" class="dimension-fields"></div>
           </fieldset>
           <label class="full-row">Ölçü tablosu / teknik çizim fotoğrafı (en fazla 20 MB)<input id="drawing" type="file" accept="image/jpeg,image/png,image/webp"></label>
           <label class="check"><input id="active" type="checkbox" checked> Aktif</label>
@@ -43,12 +46,11 @@
         </form>
       </section>
       <section class="card">
-        <div class="section-title"><h2>Brülörler</h2><button id="refresh" class="secondary">Yenile</button></div>
-        <div class="table-wrap"><table><thead><tr><th>Marka</th><th>Seri</th><th>Model</th><th>Durum</th><th>Ölçü görseli</th><th></th></tr></thead><tbody id="burnerRows"></tbody></table></div>
+        <div class="section-title"><div><h2>Brülörler</h2><p class="muted">Eski kayıtları görüntüleyebilir, PDF teknik fiş açabilir veya düzenleyebilirsin.</p></div><button id="refresh" class="secondary">Yenile</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Üretici</th><th>Seri</th><th>Model</th><th>Durum</th><th>Teknik çizim</th><th>İşlemler</th></tr></thead><tbody id="burnerRows"></tbody></table></div>
       </section>
     </section>
   </main>
-  <!-- Sıra zorunlu: Firebase SDK'ları → config → bootstrap → admin -->
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
